@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>心理APP原型 - 动态心情曲线</title>
+<style>
+:root {
+  color-scheme: light;
+  --surface: #F7F7F8;
+  --surface-muted: #EFEFF2;
+  --text: #171717;
+  --text-muted: #52525B;
+  --border: rgba(23, 23, 23, 0.12);
+  --brand: #0FDC78;
+  --brand-soft: #E5FFF2;
+  --brand-text: #004D26;
+  --brand-on: #004D26;
+  --accent: #27D2BF;
+  --accent-soft: #EAFBF8;
+  --accent-text: #0F766E;
+  --radius: 8px;
+  --radius-card: 12px;
+  --radius-full: 999px;
+  --spacer-16: 16px;
+  --font-sans: "SF Pro Text", "PingFang SC", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --app-header-home: #FFF6DC;
+  --app-header-home-deep: #FBEFC8;
+  --app-header-me: #FFF6DC;
+  --app-header-me-deep: #FBEFC8;
+  --app-header-chat: #F2F5F3;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background: #E9ECF1;
+  font-family: var(--font-sans);
+  display: flex;
+  justify-content: center;
+  padding: 24px 16px;
+  min-height: 100vh;
+}
+.phone {
+  width: 320px;
+  background: #000;
+  border-radius: 40px;
+  padding: 10px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.15);
+}
+.phone-screen {
+  background: var(--surface);
+  border-radius: 32px;
+  overflow: hidden;
+  position: relative;
+  height: 620px;
+  display: flex;
+  flex-direction: column;
+}
+.notch {
+  position: absolute;
+  top: 10px; left: 50%;
+  transform: translateX(-50%);
+  width: 110px; height: 18px;
+  background: #000;
+  border-radius: 0 0 12px 12px;
+  z-index: 10;
+}
+.statusbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 20px 4px;
+  background: var(--app-header-home);
+  color: #8A6A28;
+  font-size: 11px;
+  font-weight: 600;
+  transition: background .25s ease;
+}
+.statusbar.me { background: var(--app-header-me); }
+.statusbar.chat { background: var(--app-header-chat); color: var(--text); }
+.statusbar .icons { display: flex; gap: 5px; align-items: center; }
+
+.pages { flex: 1; position: relative; overflow: hidden; }
+.page {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  opacity: 0; transform: translateX(20px);
+  pointer-events: none;
+  transition: opacity .2s ease, transform .2s ease;
+  overflow: hidden;
+}
+.page.active { opacity: 1; transform: translateX(0); pointer-events: auto; }
+
+/* ===== HOME ===== */
+.mood-header {
+  background: linear-gradient(180deg, var(--app-header-home) 0%, var(--app-header-home-deep) 100%);
+  padding: 8px 16px 16px; color: #8A6A28;
+}
+.mood-wave { position: relative; height: 90px; margin-top: 4px; }
+.mood-wave svg { width: 100%; height: 100%; display: block; }
+.mood-axis {
+  display: flex; justify-content: space-between;
+  font-size: 11px; color: rgba(138,106,40,0.65);
+  margin-top: -2px;
+}
+.mood-axis span.now { color: #8A6A28; opacity: 1; font-weight: 600; }
+.mood-rating { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; font-size: 13px; }
+.mood-rating .grade {
+  background: var(--brand); color: var(--brand-on);
+  width: 26px; height: 26px; border-radius: var(--radius-full);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 14px; margin-left: 6px;
+}
+.mood-rating .grade-select { display: flex; gap: 4px; }
+.mood-rating .grade-dot {
+  width: 18px; height: 18px; border-radius: var(--radius-full);
+  background: rgba(138,106,40,0.1); border: 1px solid rgba(138,106,40,0.4);
+  color: #8A6A28; font-size: 10px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: all .15s ease;
+}
+.mood-rating .grade-dot.active { background: var(--brand); color: var(--brand-on); border-color: var(--brand); }
+.app-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.app-body::-webkit-scrollbar { width: 0; }
+.section-title { padding: 12px 16px 8px; font-weight: 600; font-size: 15px; color: var(--text); }
+.doctor-list { padding: 0 12px 12px; display: flex; flex-direction: column; gap: 8px; }
+.doctor-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-card); padding: 12px;
+  cursor: pointer; transition: all .15s ease; display: flex; gap: 10px;
+}
+.doctor-card:active { transform: scale(0.98); border-color: var(--brand); }
+.doctor-card.expanded { border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand-soft); }
+.doctor-avatar {
+  width: 44px; height: 44px; border-radius: var(--radius-full);
+  background: var(--surface-muted); display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; font-size: 18px; font-weight: 600; color: var(--text-muted);
+}
+.doctor-info { flex: 1; min-width: 0; }
+.doctor-name-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.doctor-name { font-weight: 600; font-size: 14px; color: var(--text); }
+.doctor-title { font-size: 11px; color: var(--text-muted); }
+.hosp-badge { font-size: 11px; color: var(--brand-text); background: var(--brand-soft); padding: 1px 6px; border-radius: var(--radius); font-weight: 500; }
+.third-tag { font-size: 10px; color: var(--accent-text); background: var(--accent-soft); padding: 1px 5px; border-radius: 3px; }
+.doctor-hosp { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.doctor-skill { font-size: 12px; color: var(--text); margin-top: 4px; line-height: 1.4; }
+.doctor-stats { display: flex; gap: 12px; margin-top: 6px; font-size: 11px; color: var(--text-muted); }
+.doctor-stats b { color: var(--text); font-weight: 600; }
+.doctor-detail { max-height: 0; overflow: hidden; transition: max-height .2s ease; }
+.doctor-card.expanded .doctor-detail { max-height: 100px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+.detail-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
+.detail-row .label { color: var(--text-muted); }
+.detail-row .val { color: var(--text); font-weight: 500; }
+.book-btn { margin-top: 6px; width: 100%; background: var(--brand); color: var(--brand-on); border: none; border-radius: var(--radius); padding: 6px 0; font-size: 12px; font-weight: 600; cursor: pointer; }
+
+/* ===== ME ===== */
+.profile-header { background: linear-gradient(180deg, var(--app-header-me) 0%, var(--app-header-me-deep) 100%); padding: 6px 16px 18px; color: #8A6A28; }
+.profile-top-bar { display: flex; justify-content: space-between; align-items: center; padding: 4px 0 10px; }
+.profile-top-bar .icon-btn { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: var(--radius); transition: background .15s ease; }
+.profile-top-bar .icon-btn:active { background: rgba(138,106,40,0.12); }
+.profile-top-bar .username { font-size: 15px; font-weight: 600; }
+.profile-center { display: flex; flex-direction: column; align-items: center; margin-top: 4px; }
+.avatar-wrap { width: 66px; height: 66px; border-radius: var(--radius-full); background: rgba(138,106,40,0.1); border: 3px solid rgba(138,106,40,0.45); display: flex; align-items: center; justify-content: center; overflow: hidden; box-shadow: 0 4px 12px rgba(138,106,40,0.15); cursor: pointer; }
+.avatar-wrap svg { width: 100%; height: 100%; }
+.follow-stats { margin-top: 10px; font-size: 13px; opacity: 0.92; }
+.follow-stats b { font-weight: 600; }
+.quick-entries { display: grid; grid-template-columns: repeat(4, 1fr); background: var(--surface); padding: 14px 8px 10px; border-bottom: 6px solid var(--surface-muted); }
+.quick-item { display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; padding: 6px 4px; border-radius: var(--radius); transition: background .15s ease; }
+.quick-item:active { background: var(--surface-muted); }
+.quick-item .q-icon { width: 36px; height: 36px; border-radius: var(--radius-full); display: flex; align-items: center; justify-content: center; }
+.quick-item .q-icon svg { width: 20px; height: 20px; color: #fff; }
+.quick-item .q-label { font-size: 11px; color: var(--text-muted); }
+.menu-list { background: var(--surface); }
+.menu-item { display: flex; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background .12s ease; gap: 12px; }
+.menu-item:last-child { border-bottom: none; }
+.menu-item:active { background: var(--surface-muted); }
+.menu-item .m-icon { width: 28px; height: 28px; border-radius: var(--radius-full); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.menu-item .m-icon svg { width: 16px; height: 16px; color: #fff; }
+.menu-item .m-label { flex: 1; font-size: 14px; color: var(--text); }
+.menu-item .m-arrow { color: var(--text-muted); opacity: 0.5; }
+.menu-item .m-arrow svg { width: 16px; height: 16px; }
+
+/* ===== CHAT ===== */
+.chat-header {
+  background: var(--app-header-chat);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 12px 10px;
+  display: flex; align-items: center;
+}
+.chat-back { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-muted); border-radius: var(--radius); }
+.chat-back:active { background: var(--surface-muted); }
+.chat-title-box { flex: 1; text-align: center; }
+.chat-title { font-size: 16px; font-weight: 600; color: var(--text); }
+.chat-subtitle { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+.chat-right-placeholder { width: 28px; }
+.chat-body { flex: 1; overflow-y: auto; background: var(--app-header-chat); padding: 12px 12px 8px; -webkit-overflow-scrolling: touch; }
+.chat-body::-webkit-scrollbar { width: 0; }
+.msg-row { display: flex; gap: 8px; margin-bottom: 12px; align-items: flex-start; }
+.msg-row.user { flex-direction: row-reverse; }
+.msg-avatar { width: 32px; height: 32px; border-radius: var(--radius-full); flex-shrink: 0; overflow: hidden; background: var(--surface-muted); }
+.msg-avatar svg { width: 100%; height: 100%; }
+.msg-avatar img.echo-avatar-img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: var(--radius-full); }
+.msg-bubble { max-width: 70%; padding: 8px 12px; border-radius: 14px; font-size: 13px; line-height: 1.5; word-break: break-word; }
+.msg-row.ai .msg-bubble { background: #fff; color: var(--text); border-top-left-radius: 4px; border: 1px solid var(--border); }
+.msg-row.user .msg-bubble { background: #0FDC78; color: #004D26; border-top-right-radius: 4px; font-weight: 500; }
+.system-msg { text-align: center; font-size: 11px; color: var(--text-muted); margin: 8px 0 12px; }
+.system-msg span { background: var(--surface); padding: 3px 10px; border-radius: var(--radius-full); opacity: 0.8; }
+.typing-dots { display: inline-flex; gap: 3px; padding: 4px 0; }
+.typing-dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted); opacity: 0.4; animation: typingBounce 1.2s infinite ease-in-out; }
+.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes typingBounce { 0%,60%,100%{transform:translateY(0);opacity:.4} 30%{transform:translateY(-5px);opacity:1} }
+.chat-input-bar { display: flex; align-items: center; gap: 6px; padding: 8px 10px; background: var(--surface); border-top: 1px solid var(--border); }
+.input-btn { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); cursor: pointer; border-radius: var(--radius-full); flex-shrink: 0; }
+.input-btn:active { color: var(--brand); }
+.input-btn svg { width: 22px; height: 22px; }
+.chat-input { flex: 1; border: 1px solid var(--border); border-radius: var(--radius-full); padding: 7px 14px; font-size: 13px; background: var(--surface); color: var(--text); outline: none; font-family: inherit; }
+.chat-input:focus { border-color: var(--brand); }
+.voice-hold-btn { flex:1; display:none; align-items:center; justify-content:center; border:1px solid var(--brand); border-radius:var(--radius-full); padding:7px 14px; font-size:13px; color:var(--brand-text); background:var(--brand-soft); font-weight:600; user-select:none; cursor:pointer; transition:background .12s ease; }
+.voice-hold-btn.holding { background:var(--brand); color:var(--brand-on); }
+.voice-msg-bubble { display:flex; align-items:center; gap:8px; min-width:64px; }
+.voice-wave { display:inline-flex; align-items:center; gap:2px; height:16px; }
+.voice-wave i { display:block; width:2.5px; border-radius:2px; background:currentColor; opacity:.85; }
+.voice-sec { font-size:12px; font-weight:600; }
+.panel-bar { display:none; background:var(--surface); border-top:1px solid var(--border); padding:10px 12px 12px; }
+.panel-bar.show { display:block; }
+.panel-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:8px; }
+.panel-grid.cols3 { grid-template-columns:repeat(3,1fr); }
+.panel-item { display:flex; flex-direction:column; align-items:center; gap:4px; padding:8px 2px; border-radius:var(--radius); cursor:pointer; transition:background .12s ease; }
+.panel-item:active { background:var(--surface-muted); }
+.panel-item .p-emoji { width:38px; height:38px; border-radius:var(--radius-full); background:var(--surface-muted); display:flex; align-items:center; justify-content:center; font-size:20px; }
+.panel-item .p-icon { width:38px; height:38px; border-radius:var(--radius-full); background:var(--surface-muted); display:flex; align-items:center; justify-content:center; color:var(--text-muted); }
+.panel-item .p-icon svg { width:20px; height:20px; }
+.panel-item .p-label { font-size:11px; color:var(--text-muted); }
+
+/* ===== 周报页（奶黄主题）===== */
+.page-weekly { background:#FFF6DC; }
+.statusbar.weekly { background:#FFF6DC; color:#8A6A28; border-bottom:1px solid rgba(138,106,40,0.12); }
+.statusbar.weekly svg, .statusbar.weekly .icons { color:#8A6A28; }
+.weekly-header { display:flex; align-items:center; padding:8px 12px 10px; }
+.weekly-back { width:30px; height:30px; display:flex; align-items:center; justify-content:center; cursor:pointer; color:#8A6A28; border-radius:var(--radius-full); }
+.weekly-back:active { background:rgba(138,106,40,0.1); }
+.weekly-title { flex:1; text-align:center; font-size:15px; font-weight:700; color:#8A6A28; letter-spacing:2px; }
+.weekly-header .ph { width:30px; }
+.weekly-body { flex:1; overflow-y:auto; padding:6px 14px 16px; display:flex; flex-direction:column; gap:12px; }
+.weekly-body::-webkit-scrollbar { width:0; }
+.week-card { background:#FFFDF3; border:1px solid rgba(138,106,40,0.14); border-radius:var(--radius-card); padding:12px; box-shadow:0 2px 8px rgba(138,106,40,0.08); }
+.week-range-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+.week-arrow { width:30px; height:30px; border-radius:var(--radius-full); border:1px solid rgba(138,106,40,0.25); background:#FFFCF0; color:#8A6A28; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all .12s ease; flex-shrink:0; }
+.week-arrow:active { background:#F5E9C4; }
+.week-arrow.disabled { opacity:0.35; }
+.week-range { font-size:13px; font-weight:700; color:#8A6A28; }
+.week-chart { width:100%; height:110px; display:block; }
+.week-empty { text-align:center; font-size:12px; color:#B49B57; padding:30px 0 24px; }
+.echo-say-row { display:flex; gap:8px; align-items:flex-start; }
+.echo-say-row .msg-avatar { width:34px; height:34px; }
+.echo-say-title { font-size:12px; color:#8A6A28; margin-bottom:6px; margin-left:2px; }
+.echo-say-bubble { background:#FFF8E6; border:1px solid rgba(138,106,40,0.18); border-radius:12px; border-top-left-radius:4px; padding:10px 12px; font-size:13px; line-height:1.65; color:#6B5320; flex:1; }
+.mine-say-title { font-size:11px; color:#A98F4C; margin:2px 2px 6px; }
+.mine-say-input { width:100%; border:1px solid rgba(138,106,40,0.25); border-radius:var(--radius); background:#FFFDF3; padding:10px 12px; font-size:13px; color:#6B5320; outline:none; font-family:inherit; resize:none; height:64px; line-height:1.5; }
+.mine-say-input:focus { border-color:#D9B44A; background:#FFFEF9; }
+.mine-say-input::placeholder { color:#C4AD74; }
+.mine-say-hint { font-size:10px; color:#C4AD74; margin-top:4px; text-align:right; }
+
+/* ===== 个人资料编辑页 ===== */
+.page-profile { background:#FFF6DC; }
+.statusbar.profile { background:#FFF6DC; color:#8A6A28; border-bottom:1px solid rgba(138,106,40,0.12); }
+.statusbar.profile svg, .statusbar.profile .icons { color:#8A6A28; }
+.profile-edit-avatar-wrap { display:flex; flex-direction:column; align-items:center; gap:6px; padding:6px 0 12px; }
+.profile-edit-tip { font-size:11px; color:#A98F4C; }
+.profile-edit-row { display:flex; align-items:center; justify-content:space-between; background:#FFFDF3; border:1px solid rgba(138,106,40,0.14); border-radius:var(--radius-card); padding:13px 14px; }
+.profile-edit-label { font-size:13px; color:#6B5320; font-weight:600; flex-shrink:0; }
+.profile-edit-input { flex:1; text-align:right; border:none; background:transparent; font-size:13px; color:#6B5320; outline:none; font-family:inherit; }
+.profile-edit-input:focus { color:#8A6A28; }
+.profile-edit-val { font-size:13px; color:#6B5320; }
+.profile-save-row { display:flex; justify-content:center; padding-top:4px; }
+.profile-save-btn { width:100%; background:#D9B44A; color:#4A3A1A; border:none; border-radius:var(--radius-card); padding:11px 0; font-size:14px; font-weight:700; cursor:pointer; transition:background .12s ease; }
+.profile-save-btn:active { background:#C9A03A; }
+
+/* 头像弹窗 */
+.avatar-popup-mask { position:absolute; inset:0; background:rgba(0,0,0,0.35); display:none; align-items:flex-end; justify-content:center; z-index:40; }
+.avatar-popup-mask.show { display:flex; }
+.avatar-popup { width:100%; background:#FFFDF3; border-radius:16px 16px 0 0; padding:6px 0 18px; }
+.avatar-popup-item { padding:16px; text-align:center; font-size:15px; color:#6B5320; cursor:pointer; transition:background .12s ease; }
+.avatar-popup-item:active { background:rgba(138,106,40,0.08); }
+.avatar-popup-divider { height:1px; background:rgba(138,106,40,0.14); margin:0 16px; }
+
+/* bottom nav */
+.bottom-nav { display: flex; border-top: 1px solid var(--border); background: var(--surface); padding: 6px 0; }
+.nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 0; cursor: pointer; color: var(--text-muted); font-size: 11px; transition: color .15s ease; }
+.nav-item svg { width: 22px; height: 22px; }
+.nav-item.active { color: var(--brand-text); font-weight: 600; }
+.home-pill { width: 46px; height: 46px; border-radius: var(--radius-full); background: var(--brand); display: flex; align-items: center; justify-content: center; margin-top: -18px; box-shadow: 0 4px 12px rgba(15,220,120,0.4); }
+.home-pill svg { width: 24px; height: 24px; color: var(--brand-on); }
+
+.toast {
+  position: absolute;
+  bottom: 70px; left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: rgba(0,0,0,0.8); color: #fff;
+  padding: 8px 16px; border-radius: var(--radius);
+  font-size: 12px; opacity: 0; pointer-events: none;
+  transition: all .2s ease; z-index: 50; white-space: nowrap;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div data-app-root>
+  <div class="phone">
+    <div class="phone-screen" id="phoneScreen">
+      <div class="notch"></div>
+
+      <div class="statusbar" id="statusbar">
+        <span>●●● 中国移动</span>
+        <span id="statusTime">8:16 AM</span>
+        <span class="icons">
+          <svg width="14" height="10" viewBox="0 0 14 10" fill="currentColor"><rect x="0" y="6" width="2" height="4" rx="0.5"/><rect x="4" y="4" width="2" height="6" rx="0.5"/><rect x="8" y="2" width="2" height="8" rx="0.5"/><rect x="12" y="0" width="2" height="10" rx="0.5"/></svg>
+          <svg width="20" height="10" viewBox="0 0 20 10" fill="none" stroke="currentColor" stroke-width="1"><rect x="0.5" y="0.5" width="16" height="9" rx="2" fill="rgba(138,106,40,0.2)"/><rect x="2" y="2" width="8" height="6" rx="1" fill="currentColor"/><rect x="17.5" y="3" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
+          <span>50%</span>
+        </span>
+      </div>
+
+      <div class="pages" id="pages">
+
+        <!-- ===== HOME ===== -->
+        <div class="page active" data-page="home">
+          <div class="mood-header">
+            <div class="mood-wave">
+              <svg viewBox="0 0 280 90" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="waveFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#0FDC78" stop-opacity="0.3"/>
+                    <stop offset="100%" stop-color="#0FDC78" stop-opacity="0"/>
+                  </linearGradient>
+                </defs>
+                <path id="waveFillPath" fill="url(#waveFill)" d=""/>
+                <path id="waveLinePath" fill="none" stroke="#0FDC78" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d=""/>
+                <circle id="waveDot" cx="140" cy="33" r="4" fill="#0FDC78" stroke="#FFF6DC" stroke-width="1.5"/>
+                <text id="waveNowText" x="148" y="26" fill="#8A6A28" font-size="10" font-weight="600">当前</text>
+              </svg>
+            </div>
+            <div class="mood-axis" id="moodAxis">
+              <span></span><span></span><span class="now"></span><span></span><span></span>
+            </div>
+            <div class="mood-rating">
+              <div>今日心情评级：<span class="grade" id="gradeBadge">B</span></div>
+              <div class="grade-select" id="gradeSelect">
+                <span class="grade-dot" data-g="A">A</span>
+                <span class="grade-dot active" data-g="B">B</span>
+                <span class="grade-dot" data-g="C">C</span>
+                <span class="grade-dot" data-g="D">D</span>
+              </div>
+            </div>
+          </div>
+          <div class="app-body">
+            <div class="section-title">精品推荐</div>
+            <div class="doctor-list" id="doctorList"></div>
+            <div style="height:8px"></div>
+          </div>
+        </div>
+
+        <!-- ===== 小回声 CHAT ===== -->
+        <div class="page" data-page="chat">
+          <div class="chat-header">
+            <div class="chat-back" id="chatBack">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </div>
+            <div class="chat-title-box">
+              <div class="chat-title">小回声</div>
+              <div class="chat-subtitle">智能聊天AI</div>
+            </div>
+            <div class="chat-right-placeholder"></div>
+          </div>
+          <div class="chat-body" id="chatBody"></div>
+          <div class="chat-input-bar">
+            <div class="input-btn" id="voiceBtn" title="语音">
+              <svg id="voiceIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+            </div>
+            <input class="chat-input" id="chatInput" placeholder="说点什么..." />
+            <div class="voice-hold-btn" id="voiceHoldBtn">长按发送语音</div>
+            <div class="input-btn" id="emojiBtn" title="表情">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+            </div>
+            <div class="input-btn" id="plusBtn" title="更多">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+            </div>
+          </div>
+          <div class="panel-bar" id="emojiPanel">
+            <div class="panel-grid">
+              <div class="panel-item" data-emo="开心" data-face="😄"><div class="p-emoji">😄</div><span class="p-label">开心</span></div>
+              <div class="panel-item" data-emo="愤怒" data-face="😠"><div class="p-emoji">😠</div><span class="p-label">愤怒</span></div>
+              <div class="panel-item" data-emo="哭泣" data-face="😭"><div class="p-emoji">😭</div><span class="p-label">哭泣</span></div>
+              <div class="panel-item" data-emo="委屈" data-face="🥺"><div class="p-emoji">🥺</div><span class="p-label">委屈</span></div>
+              <div class="panel-item" data-emo="害怕" data-face="😨"><div class="p-emoji">😨</div><span class="p-label">害怕</span></div>
+              <div class="panel-item" data-emo="无语" data-face="😶"><div class="p-emoji">😶</div><span class="p-label">无语</span></div>
+            </div>
+          </div>
+          <div class="panel-bar" id="plusPanel">
+            <div class="panel-grid cols3">
+              <div class="panel-item" data-plus="图片"><div class="p-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div><span class="p-label">图片</span></div>
+              <div class="panel-item" data-plus="拍摄"><div class="p-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div><span class="p-label">拍摄</span></div>
+              <div class="panel-item" data-plus="位置"><div class="p-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div><span class="p-label">位置</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== ME ===== -->
+        <div class="page" data-page="me">
+          <div class="profile-header">
+            <div class="profile-top-bar">
+              <div class="icon-btn" id="addFriendBtn">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8A6A28" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+              </div>
+              <div class="username">奥黛丽赫本_CM</div>
+              <div class="icon-btn" id="settingsBtn">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8A6A28" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              </div>
+            </div>
+            <div class="profile-center">
+              <div class="avatar-wrap" id="avatarBtn">
+                <svg viewBox="0 0 66 66" xmlns="http://www.w3.org/2000/svg">
+                  <defs><linearGradient id="avBg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FBCFE8"/><stop offset="100%" stop-color="#F472B6"/></linearGradient></defs>
+                  <circle cx="33" cy="33" r="33" fill="url(#avBg)"/>
+                  <circle cx="33" cy="26" r="11" fill="#FDE68A"/>
+                  <path d="M12 60c0-11 9.4-19 21-19s21 8 21 19" fill="#FBBF24"/>
+                </svg>
+              </div>
+              <div class="follow-stats"><b>118</b> 已关注 / <b>375</b> 关注你</div>
+            </div>
+          </div>
+          <div class="quick-entries">
+            <div class="quick-item" data-q="周报"><div class="q-icon" style="background:#F59E0B"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg></div><span class="q-label">周报</span></div>
+            <div class="quick-item" data-q="月报"><div class="q-icon" style="background:#E8463A"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><span class="q-label">月报</span></div>
+            <div class="quick-item" data-q="年报"><div class="q-icon" style="background:#0FDC78"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg></div><span class="q-label">年报</span></div>
+            <div class="quick-item" data-q="消息提醒"><div class="q-icon" style="background:#EFAA17"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div><span class="q-label">消息提醒</span></div>
+          </div>
+          <div class="menu-list">
+            <div class="menu-item" data-m="消息列表"><div class="m-icon" style="background:#1DC981"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></div><span class="m-label">消息列表</span><span class="m-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></span></div>
+            <div class="menu-item" data-m="商城"><div class="m-icon" style="background:#F472B6"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></div><span class="m-label">商城</span><span class="m-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></span></div>
+            <div class="menu-item" data-m="预约"><div class="m-icon" style="background:#3B82F6"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div><span class="m-label">预约</span><span class="m-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></span></div>
+            <div class="menu-item" data-m="个人资料编辑"><div class="m-icon" style="background:#F472B6"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><span class="m-label">个人资料编辑</span><span class="m-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></span></div>
+            <div class="menu-item" data-m="意见与反馈"><div class="m-icon" style="background:#F59E0B"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><span class="m-label">意见与反馈</span><span class="m-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></span></div>
+          </div>
+        </div>
+
+        <!-- ===== 周报 ===== -->
+        <div class="page page-weekly" data-page="weekly">
+          <div class="weekly-header">
+            <div class="weekly-back" id="weeklyBack">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </div>
+            <div class="weekly-title">周报</div>
+            <div class="ph"></div>
+          </div>
+          <div class="weekly-body">
+            <div class="week-card">
+              <div class="week-range-row">
+                <div class="week-arrow" id="weekPrev" title="前一周">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                </div>
+                <div class="week-range" id="weekRange">--</div>
+                <div class="week-arrow" id="weekNext" title="后一周">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+              </div>
+              <svg class="week-chart" id="weekChart" viewBox="0 0 264 110" preserveAspectRatio="none"></svg>
+              <div class="week-empty" id="weekEmpty" style="display:none">这一周没有心情记录哦</div>
+            </div>
+            <div>
+              <div class="echo-say-title">小回声对这周的你想说：</div>
+              <div class="echo-say-row">
+                <div class="msg-avatar" id="weeklyEchoAvatar"></div>
+                <div class="echo-say-bubble" id="echoSay">--</div>
+              </div>
+            </div>
+            <div class="week-card">
+              <div class="mine-say-title">你想对这一周的自己说：</div>
+              <textarea class="mine-say-input" id="mineSay" placeholder="写下想对自己说的话…"></textarea>
+              <div class="mine-say-hint">回车保存</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== 个人资料编辑 ===== -->
+        <div class="page page-profile" data-page="profile">
+          <div class="weekly-header">
+            <div class="weekly-back" id="profileBack">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </div>
+            <div class="weekly-title">个人资料</div>
+            <div class="ph"></div>
+          </div>
+          <div class="weekly-body">
+            <div class="profile-edit-avatar-wrap">
+              <div class="avatar-wrap" id="profileAvatar" style="width:88px;height:88px">
+                <svg viewBox="0 0 66 66" xmlns="http://www.w3.org/2000/svg" id="profileAvatarSvg">
+                  <defs><linearGradient id="profAvBg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FBCFE8"/><stop offset="100%" stop-color="#F472B6"/></linearGradient></defs>
+                  <circle cx="33" cy="33" r="33" fill="url(#profAvBg)"/>
+                  <circle cx="33" cy="26" r="11" fill="#FDE68A"/>
+                  <path d="M12 60c0-11 9.4-19 21-19s21 8 21 19" fill="#FBBF24"/>
+                </svg>
+              </div>
+              <div class="profile-edit-tip">点击头像更换</div>
+            </div>
+            <div class="profile-edit-row">
+              <span class="profile-edit-label">用户名称</span>
+              <input class="profile-edit-input" id="profileName" maxlength="16" />
+            </div>
+            <div class="profile-edit-row">
+              <span class="profile-edit-label">手机号</span>
+              <span class="profile-edit-val">138****2026</span>
+            </div>
+            <div class="profile-save-row">
+              <button class="profile-save-btn" id="profileSave">保存修改</button>
+            </div>
+          </div>
+
+          <!-- 头像选择弹窗 -->
+          <div class="avatar-popup-mask" id="avatarPopup">
+            <div class="avatar-popup" id="avatarPopupBox">
+              <div class="avatar-popup-item" data-avatar-op="album">从相册中选择</div>
+              <div class="avatar-popup-divider"></div>
+              <div class="avatar-popup-item" data-avatar-op="random">随机生成</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="bottom-nav">
+        <div class="nav-item" data-nav="chat">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+          <span>小回声</span>
+        </div>
+        <div class="nav-item active" data-nav="home">
+          <div class="home-pill">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+          </div>
+          <span>首页</span>
+        </div>
+        <div class="nav-item" data-nav="me">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <span>我的</span>
+        </div>
+      </div>
+
+      <div class="toast" id="toast"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const root = document.querySelector('[data-app-root]');
+  const statusbar = document.getElementById('statusbar');
+  const toast = document.getElementById('toast');
+  let toastTimer;
+  function showToast(msg){
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=>toast.classList.remove('show'), 1500);
+  }
+
+  // ===== 页面切换 =====
+  function switchPage(target){
+    root.querySelectorAll('.page').forEach(p=>p.classList.toggle('active', p.dataset.page===target));
+    statusbar.classList.toggle('me', target==='me');
+    statusbar.classList.toggle('chat', target==='chat');
+    statusbar.classList.toggle('weekly', target==='weekly');
+    statusbar.classList.toggle('profile', target==='profile');
+    root.querySelector('.bottom-nav').style.display = (target==='weekly'||target==='profile') ? 'none' : 'flex';
+    root.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active', n.dataset.nav===target));
+    if(target==='weekly') renderWeek();
+  }
+  root.querySelectorAll('.nav-item').forEach(item=>{
+    item.addEventListener('click', ()=>switchPage(item.dataset.nav));
+  });
+
+  // ===== 动态心情曲线 =====
+  const WAVE_W=280, WAVE_H=90, WAVE_TOP=16, WAVE_BOT=74, WAVE_N=64;
+  const GRADE_V={A:0.92, B:0.70, C:0.48, D:0.26}; // A→D 等距下降
+  let gradeValue=GRADE_V.B, displayedV=gradeValue, rafId=null;
+  const waveFillPath=document.getElementById('waveFillPath');
+  const waveLinePath=document.getElementById('waveLinePath');
+  const waveDot=document.getElementById('waveDot');
+  const waveNowText=document.getElementById('waveNowText');
+  const axisSpans=document.querySelectorAll('#moodAxis span');
+
+  function fmtHM(d){ return d.getHours()+':'+String(d.getMinutes()).padStart(2,'0'); }
+
+  function buildWave(v, now){
+    const curHour=now.getHours()+now.getMinutes()/60;
+    let d='';
+    for(let i=0;i<=WAVE_N;i++){
+      const f=i/WAVE_N;
+      const hour=curHour+(f-0.5)*24; // 横轴：现在前12h → 现在后12h
+      // 以真实时间驱动的心情基线（两组正弦叠加，模拟一天内的自然起伏）
+      let base=0.5+0.30*Math.sin(hour/24*Math.PI*4+0.8)+0.10*Math.sin(hour*1.7+2.1);
+      base=Math.max(0.06, Math.min(0.94, base));
+      // 在中心位置把曲线平滑拉到当前评级高度
+      const w=Math.exp(-Math.pow((f-0.5)/0.075,2)/2);
+      const vv=base*(1-w)+v*w;
+      const x=(f*WAVE_W).toFixed(1);
+      const y=(WAVE_BOT-vv*(WAVE_BOT-WAVE_TOP)).toFixed(1);
+      d+=(i?' L':'M')+x+','+y;
+    }
+    return d;
+  }
+
+  function renderWave(v){
+    const now=new Date();
+    const d=buildWave(v,now);
+    waveLinePath.setAttribute('d',d);
+    waveFillPath.setAttribute('d',d+' L'+WAVE_W+','+WAVE_H+' L0,'+WAVE_H+' Z');
+    const cy=WAVE_BOT-v*(WAVE_BOT-WAVE_TOP);
+    waveDot.setAttribute('cy',cy.toFixed(1));
+    waveNowText.setAttribute('y',(cy-7).toFixed(1));
+    // 5 个刻度：现在-12h、-6h、现在、+6h、+12h
+    [-12,-6,0,6,12].forEach((off,i)=>{
+      const td=new Date(now.getTime()+off*3600000);
+      axisSpans[i].textContent = i===2 ? '现在 '+fmtHM(td) : fmtHM(td);
+    });
+  }
+
+  function tweenWave(target){
+    if(rafId) cancelAnimationFrame(rafId);
+    const start=displayedV, t0=performance.now(), dur=200;
+    function step(t){
+      const k=Math.min(1,(t-t0)/dur);
+      const e=1-Math.pow(1-k,3);
+      displayedV=start+(target-start)*e;
+      renderWave(displayedV);
+      if(k<1){ rafId=requestAnimationFrame(step); }
+    }
+    rafId=requestAnimationFrame(step);
+  }
+
+  renderWave(displayedV);
+  setInterval(()=>renderWave(displayedV), 60000); // 每分钟跟随真实时间刷新
+
+  // ===== HOME: 评级切换 =====
+  const gradeSelect=document.getElementById('gradeSelect');
+  const gradeBadge=document.getElementById('gradeBadge');
+  gradeSelect.querySelectorAll('.grade-dot').forEach(dot=>{
+    dot.addEventListener('click', e=>{
+      e.stopPropagation();
+      gradeSelect.querySelectorAll('.grade-dot').forEach(d=>d.classList.remove('active'));
+      dot.classList.add('active');
+      gradeBadge.textContent=dot.dataset.g;
+      gradeValue=GRADE_V[dot.dataset.g];
+      tweenWave(gradeValue);
+      showToast('心情评级已更新为 '+dot.dataset.g);
+    });
+  });
+
+  // ===== HOME: 医生卡片 =====
+  const doctors=[
+    {name:'邹定辉',title:'副主任医师',dept:'精神心理科',hosp:'中南大学湘雅二医院',third:'三甲',skill:'抑郁症、青少年抑郁症、焦虑抑郁症、产后抑郁症、躁狂抑郁症，尤其擅长治疗儿童青…',stat1:1280,stat2:30,avatar:'邹'},
+    {name:'戴俊',title:'主任医师',dept:'精神心理科',hosp:'广州医科大学附属脑科医院',third:'三甲',skill:'精神分裂症、情感障碍、焦虑抑郁、失眠、强迫…',stat1:980,stat2:28,avatar:'戴'},
+    {name:'万丽霞',title:'主任医师',dept:'精神心理科',hosp:'哈尔滨市第一专科医院',third:'三甲',skill:'抑郁症、强迫症、恐怖症、焦虑症、失眠症、精神分裂症…',stat1:28,stat2:'平均响应 30分钟内',avatar:'万'},
+    {name:'张海生',title:'副主任医师',dept:'心理咨询科',hosp:'杭州市第一人民医院',third:'三甲',skill:'抑郁症、躁狂抑郁症、青少年抑郁症、产后抑郁症、焦虑抑郁症…',stat1:74,stat2:'平均响应 4小时内',avatar:'张'},
+    {name:'蒙华庆',title:'主任医师',dept:'精神心理科',hosp:'重庆医科大学附属第一医院',third:'三甲',skill:'青少年抑郁症、抑郁症、青年期抑郁症、躁狂抑郁症…',stat1:827,stat2:35,avatar:'蒙'},
+    {name:'肖攀攀',title:'主任医师',dept:'精神心理科',hosp:'广州医科大学附属脑科医院',third:'三甲',skill:'抑郁症、躁狂抑郁症、焦虑症、强迫症、失眠症、多梦症…',stat1:246,stat2:22,avatar:'肖'}
+  ];
+  const list=document.getElementById('doctorList');
+  doctors.forEach(d=>{
+    const card=document.createElement('div');
+    card.className='doctor-card';
+    card.innerHTML=`
+      <div class="doctor-avatar">${d.avatar}</div>
+      <div class="doctor-info">
+        <div class="doctor-name-row">
+          <span class="doctor-name">${d.name}</span>
+          <span class="doctor-title">${d.title}</span>
+          <span class="hosp-badge">${d.dept}</span>
+          <span class="third-tag">${d.third}</span>
+        </div>
+        <div class="doctor-hosp">${d.hosp}</div>
+        <div class="doctor-skill">擅长：${d.skill}</div>
+        <div class="doctor-stats">
+          <span>月咨询 <b>${d.stat1}</b></span>
+          <span>${typeof d.stat2==='number'?'评分 '+d.stat2:d.stat2}</span>
+        </div>
+        <div class="doctor-detail">
+          <div class="detail-row"><span class="label">可预约时段</span><span class="val">今日 14:00-18:00</span></div>
+          <div class="detail-row"><span class="label">图文咨询</span><span class="val">¥80 / 次</span></div>
+          <button class="book-btn">立即预约</button>
+        </div>
+      </div>`;
+    card.addEventListener('click', e=>{
+      if(e.target.classList.contains('book-btn')){ showToast('预约请求已发送给 '+d.name+' 医生'); e.stopPropagation(); return; }
+      root.querySelectorAll('.doctor-card').forEach(c=>{ if(c!==card) c.classList.remove('expanded'); });
+      card.classList.toggle('expanded');
+    });
+    list.appendChild(card);
+  });
+
+  // ===== ME 页交互 =====
+  document.getElementById('addFriendBtn').addEventListener('click', ()=>showToast('打开添加好友'));
+  document.getElementById('settingsBtn').addEventListener('click', ()=>showToast('打开设置'));
+  document.getElementById('avatarBtn').addEventListener('click', ()=>showToast('查看头像大图'));
+  root.querySelectorAll('.quick-item').forEach(item=>item.addEventListener('click', ()=>{
+    const q=item.dataset.q;
+    if(q==='周报'){ switchPage('weekly'); return; }
+    if(q==='月报'||q==='年报'){ showToast('暂无数据'); return; }
+    showToast('进入「'+q+'」');
+  }));
+  root.querySelectorAll('.menu-item').forEach(item=>item.addEventListener('click', ()=>{
+    if(item.dataset.m==='个人资料编辑'){ switchPage('profile'); return; }
+    showToast('进入「'+item.dataset.m+'」');
+  }));
+
+  // ===== 小回声聊天 =====
+  const chatBody=document.getElementById('chatBody');
+  const chatInput=document.getElementById('chatInput');
+  const aiAvatar=`<img class="echo-avatar-img" src="data:image/png;base64,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" alt="小回声" />`;
+  const userAvatar=`<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="usAv" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FDE68A"/><stop offset="100%" stop-color="#F59E0B"/></linearGradient></defs><rect width="32" height="32" rx="16" fill="url(#usAv)"/><circle cx="16" cy="13" r="6" fill="#FEF3C7"/><path d="M5 29c0-6 5-10 11-10s11 4 11 10" fill="#FCD34D"/></svg>`;
+
+  // 周报页的小回声头像复用同一图片
+  const weeklyEchoAvatar=document.getElementById('weeklyEchoAvatar');
+  if(weeklyEchoAvatar) weeklyEchoAvatar.innerHTML=aiAvatar;
+
+  function addMsg(text,who){
+    const row=document.createElement('div');
+    row.className='msg-row '+who;
+    row.innerHTML=`<div class="msg-avatar">${who==='ai'?aiAvatar:userAvatar}</div><div class="msg-bubble"></div>`;
+    row.querySelector('.msg-bubble').textContent=text;
+    chatBody.appendChild(row);
+    chatBody.scrollTop=chatBody.scrollHeight;
+    return row;
+  }
+  function addSystem(text){
+    const s=document.createElement('div');
+    s.className='system-msg';
+    s.innerHTML='<span>'+text+'</span>';
+    chatBody.appendChild(s);
+    chatBody.scrollTop=chatBody.scrollHeight;
+  }
+  function addTyping(){
+    const row=document.createElement('div');
+    row.className='msg-row ai';
+    row.innerHTML=`<div class="msg-avatar">${aiAvatar}</div><div class="msg-bubble"><div class="typing-dots"><span></span><span></span><span></span></div></div>`;
+    chatBody.appendChild(row);
+    chatBody.scrollTop=chatBody.scrollHeight;
+    return row;
+  }
+
+  addMsg('你好，我是智能聊天AI小回声！','ai');
+  addMsg('我可以根据您提供的问题进行解答，也可以提供一些建议和安慰，希望您能喜欢。','ai');
+  addMsg('今天考试没考好，伤心TvT','user');
+  addMsg('小回声会陪伴你，您可以选择点击"倾听"来诉说你的故事~','ai');
+  addMsg('您可以选择点击"解压伴侣"，小回声会为您播放每日歌单','ai');
+  addSystem('您已选择 倾听');
+  addMsg('我今天心情特别不好，考预防考破防了，还没来得及好好复习就考了，拿到卷子感觉天都塌了，好多不会做的，感觉就算是平时满分都不一定能过','user');
+
+  // ===== 智能情绪分析回复引擎 =====
+  // 思路：先识别"发生了什么事"（事件库）→ 结合情绪词判断心情好坏 → 根据语气强度（特别/有点…）调整共情深度 → 给出积极的安慰并追问
+  const pick=a=>a[Math.floor(Math.random()*a.length)];
+
+  // 事件库（顺序重要：冲突类优先匹配，避免"和朋友吵架"被当成社交玩乐）
+  const EVENTS=[
+    { re:/分手|失恋|吵架|闹掰|绝交|冷战|被甩|背叛|不喜欢我/,
+      neg:'感情里的事最磨人，无论过程如何，难过都是正常的。你的真心值得被好好对待，先把自己照顾好。' },
+    { re:/获奖|拿奖|offer|上岸|第一名|被夸|表扬|考过|及格|通过|录取|保研|签了/,
+      pos:'这是你应得的呀！一步一步走到今天，你的努力终于被看见了，我真的替你开心，为你鼓掌！' },
+    { re:/考试|考砸|没考好|考破|挂科|不及格|成绩|卷子|期末|补考/,
+      good:/过了|及格|通过|考好|还行|还可以/,
+      pos:'考试顺利过关，是不是有种稳稳的安心感？你的付出都有回报，继续保持这个节奏～',
+      neg:'一场考试真的不能定义你。它只是提醒我们哪块知识还没站稳，不是给你贴"不行"的标签。你已经很努力了，我陪你一起想办法。' },
+    { re:/作业|论文|报告|due|DDL|ddl|截止|背书|选课|学分/,
+      neg:'任务一件件堆上来的时候，光是看着就累了吧。别急，我们把大块拆成小块，一件一件来，我陪你慢慢清完它。' },
+    { re:/加班|老板|上班|工作|面试|裁员|实习|KPI|kpi|同事/,
+      neg:'工作里的事常常身不由己，压力攒多了谁都受不了。你已经做得很好了，别把所有的责任都揽在自己肩上。' },
+    { re:/生病|感冒|发烧|头疼|不舒服|肚子疼|牙疼|过敏/,
+      neg:'身体不舒服的时候情绪也会跟着变脆弱，这很正常。先照顾好自己，好好休息，其他的事都可以先放一放。' },
+    { re:/失眠|睡不着|睡不好|熬夜|通宵|早八/,
+      neg:'睡不好的时候，第二天的世界都是灰蒙蒙的吧。今晚试试提前放下手机，把烦恼先写在纸上，我来陪你放松一下。' },
+    { re:/野餐|聚会|逛街|旅游|玩得|烧烤|火锅|看电影|约会|唱歌|露营|踏青|春游|和朋友/,
+      pos:'听起来真的太治愈了！和喜欢的人一起度过的时光，都是生活悄悄塞给你的糖。这样的小确幸要多攒一点！' },
+    { re:/下雨|阴天|降温|刮风|乌云/,
+      neu:'天气真的会影响心情，这不是矫情。下雨天就允许自己慢一点，窝着听听歌、喝点热的，也挺好。' }
+  ];
+
+  // 情绪词与语气强度
+  const POS_WORDS=/开心|高兴|快乐|兴奋|幸福|满足|太棒|超棒|真好|不错|喜欢|幸运|激动|期待|治愈|舒服|轻松/;
+  const NEG_WORDS=/伤心|难过|不开心|郁闷|emo|哭|低落|崩溃|烦|累|糟糕|难受|委屈|生气|愤怒|焦虑|担心|害怕|紧张|压力|无语|沮丧|灰心|失望|孤单|孤独|想家|空虚|破防|麻了|心塞/;
+  const STRONG=/特别|超级|非常|太|真的|十分|极其|超|爆|死了|崩了|天塌|彻底|完全/;
+  const MILD=/有点|一点|稍微|略微|一丝|一点点/;
+
+  function aiReply(t){
+    const emojiEmo=detectEmotion(t);
+    const strong=STRONG.test(t), mild=MILD.test(t);
+    const pos=POS_WORDS.test(t), neg=NEG_WORDS.test(t);
+
+    // 1) 事件共情：结合"发生了什么"来感受用户的情绪
+    for(const ev of EVENTS){
+      if(ev.re.test(t)){
+        const isGood = ev.good ? ev.good.test(t) : (pos && !neg);
+        const base = isGood && ev.pos ? ev.pos : (ev.neg || ev.neu || null);
+        if(!base) continue; // 该事件与情绪矛盾时交给后续逻辑
+        let reply=base;
+        if(!isGood && ev.neg){
+          if(strong) reply+=pick([' 这么大的情绪波动，一定憋坏了吧，不用一个人扛着。','情绪像潮水一样涌上来很正常，先让它流一会儿，我在这儿。']);
+          else if(mild) reply+=pick([' 哪怕只是小小的低落，也值得被认真照顾。','一点点的不开心，我也会认真接住。']);
+        }
+        reply+=pick([' 愿意多跟我说说吗？','想和我聊聊具体发生了什么吗？','我在听，慢慢说，不着急。']);
+        return reply;
+      }
+    }
+
+    // 2) 纯表情/情绪词消息（如只发一个😭）
+    if(emojiEmo){
+      const stripped=t.split(EMO_FACES[emojiEmo]).join('').trim();
+      if(stripped==='') return EMO_REPLIES[emojiEmo];
+    }
+
+    // 3) 没有明确事件时，按情绪词 + 语气回应
+    if(pos && !neg) return pick([
+      '看到你的好心情，我也跟着亮起来了！是遇到什么好事了吗？快和我分享分享～',
+      '今天的你闪闪发光呢！把开心的事记下来，低落的时候翻出来看看会很有力量哦。']);
+    if(neg) return pick([
+      '谢谢你愿意告诉我。情绪没有对错，难过的时候不需要假装坚强，我就在这里陪着你。想多说一点吗？',
+      '我听到了，你现在的感受是真实的，不用急着赶走它。先深呼吸一下，再慢慢和我说说发生了什么，好吗？']);
+    if(/[?？][\s]*$|[吗呢嘛][\s]*$/.test(t)) return '这个问题问得很好。无论答案是什么，你的困惑都值得被认真对待。可以再展开说说你的想法吗？';
+    return pick([
+      '我在听，你说的这些我都收到了。可以再多说一点吗？',
+      '嗯嗯，我在呢。想从哪里说起都可以。',
+      '好呀，你继续说，我会一直陪着你。']);
+  }
+
+  // 情绪表情识别
+  const EMO_REPLIES = {
+    '开心': '看到你开心的样子，我也跟着高兴起来了！发生了什么好事呀？快和我分享分享～',
+    '愤怒': '我感受到你的愤怒了。生气是正常的情绪，先深呼吸一下。愿意说说是什么让你这么生气吗？我会好好听。',
+    '哭泣': '想哭就哭出来吧，眼泪有时候是最好的释放。我在这里陪着你，不用坚强。',
+    '委屈': '受委屈了一定很难受吧。你的感受是真实且值得被认真对待的，跟我讲讲发生了什么，我来听。',
+    '害怕': '害怕的时候记得，你不是一个人。我会一直在这里陪着你。愿意说说是什么让你感到害怕吗？',
+    '无语': '哈哈，遇到无语的事情了吧。吐槽出来会舒服一点，我陪你一起吐槽～'
+  };
+  function detectEmotion(t){
+    for(const emo in EMO_REPLIES){
+      if(t.indexOf(emo)!==-1 || t.indexOf(EMO_FACES[emo])!==-1) return emo;
+    }
+    return null;
+  }
+  const EMO_FACES = { '开心':'😄', '愤怒':'😠', '哭泣':'😭', '委屈':'🥺', '害怕':'😨', '无语':'😶' };
+
+  function sendMessage(){
+    const text=chatInput.value.trim();
+    if(!text) return;
+    addMsg(text,'user');
+    chatInput.value='';
+    const typing=addTyping();
+    setTimeout(()=>{
+      typing.remove();
+      addMsg(aiReply(text),'ai');
+    }, 900+Math.random()*600);
+  }
+  chatInput.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); sendMessage(); } });
+
+  // ===== 语音模式切换 =====
+  const voiceBtn=document.getElementById('voiceBtn');
+  const voiceIcon=document.getElementById('voiceIcon');
+  const voiceHoldBtn=document.getElementById('voiceHoldBtn');
+  const MIC_SVG='<path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>';
+  const KB_SVG='<rect x="2" y="5" width="20" height="14" rx="2"/><line x1="6" y1="9" x2="6" y2="9.01"/><line x1="10" y1="9" x2="10" y2="9.01"/><line x1="14" y1="9" x2="14" y2="9.01"/><line x1="18" y1="9" x2="18" y2="9.01"/><line x1="6" y1="13" x2="6" y2="13.01"/><line x1="18" y1="13" x2="18" y2="13.01"/><line x1="9" y1="15" x2="15" y2="15"/>';
+  let voiceMode=false, holdTimer=null, holdStart=0, holding=false;
+
+  function setVoiceMode(on){
+    voiceMode=on;
+    chatInput.style.display = on?'none':'block';
+    voiceHoldBtn.style.display = on?'flex':'none';
+    voiceIcon.innerHTML = on?KB_SVG:MIC_SVG;
+    hidePanels();
+  }
+  voiceBtn.addEventListener('click', ()=>setVoiceMode(!voiceMode));
+
+  function startHold(e){
+    e.preventDefault();
+    if(holding) return;
+    holding=true;
+    holdStart=Date.now();
+    voiceHoldBtn.classList.add('holding');
+    voiceHoldBtn.textContent='松开发送…';
+    // 超过60秒自动截断
+    holdTimer=setTimeout(()=>endHold(), 60000);
+  }
+  function endHold(){
+    if(!holding) return;
+    holding=false;
+    clearTimeout(holdTimer);
+    voiceHoldBtn.classList.remove('holding');
+    voiceHoldBtn.textContent='长按发送语音';
+    let sec=Math.round((Date.now()-holdStart)/1000);
+    if(sec<1) sec=1;
+    if(sec>60) sec=60;
+    sendVoice(sec);
+  }
+  function sendVoice(sec){
+    const row=document.createElement('div');
+    row.className='msg-row user';
+    // 语音条宽度随秒数增长
+    const w=Math.min(150, 56+sec*4);
+    let bars='';
+    const n=8+Math.min(10,sec);
+    for(let i=0;i<n;i++){
+      const h=6+((i*7+sec*3)%10);
+      bars+='<i style="height:'+h+'px"></i>';
+    }
+    row.innerHTML=`<div class="msg-avatar">${userAvatar}</div><div class="msg-bubble" style="max-width:none"><div class="voice-msg-bubble"><span class="voice-wave">${bars}</span><span class="voice-sec">${sec}&Prime;</span></div></div>`;
+    chatBody.appendChild(row);
+    chatBody.scrollTop=chatBody.scrollHeight;
+    const typing=addTyping();
+    setTimeout(()=>{
+      typing.remove();
+      addMsg('我收到了你 '+sec+' 秒的语音，正在认真听～谢谢你愿意说给我听。','ai');
+    }, 900+Math.random()*600);
+  }
+  voiceHoldBtn.addEventListener('mousedown', startHold);
+  voiceHoldBtn.addEventListener('mouseup', endHold);
+  voiceHoldBtn.addEventListener('mouseleave', ()=>{ if(holding) endHold(); });
+  voiceHoldBtn.addEventListener('touchstart', startHold, {passive:false});
+  voiceHoldBtn.addEventListener('touchend', endHold);
+
+  // ===== 表情面板 =====
+  const emojiBtn=document.getElementById('emojiBtn');
+  const emojiPanel=document.getElementById('emojiPanel');
+  const plusPanel=document.getElementById('plusPanel');
+  function hidePanels(){
+    emojiPanel.classList.remove('show');
+    plusPanel.classList.remove('show');
+  }
+  emojiBtn.addEventListener('click', ()=>{
+    const willShow=!emojiPanel.classList.contains('show');
+    hidePanels();
+    if(willShow) emojiPanel.classList.add('show');
+  });
+  emojiPanel.querySelectorAll('.panel-item').forEach(item=>{
+    item.addEventListener('click', ()=>{
+      chatInput.value += item.dataset.face;
+      // 如果在语音模式，切回输入模式方便查看
+      if(voiceMode) setVoiceMode(false);
+      chatInput.focus();
+    });
+  });
+
+  // ===== 加号面板 =====
+  document.getElementById('plusBtn').addEventListener('click', ()=>{
+    const willShow=!plusPanel.classList.contains('show');
+    hidePanels();
+    if(willShow) plusPanel.classList.add('show');
+  });
+  plusPanel.querySelectorAll('.panel-item').forEach(item=>{
+    item.addEventListener('click', ()=>{
+      hidePanels();
+      showToast('测试中，敬请期待~');
+    });
+  });
+
+  document.getElementById('chatBack').addEventListener('click', ()=>switchPage('home'));
+
+  // ===== 周报页 =====
+  const weekChart=document.getElementById('weekChart');
+  const weekRange=document.getElementById('weekRange');
+  const weekEmpty=document.getElementById('weekEmpty');
+  const echoSay=document.getElementById('echoSay');
+  const mineSay=document.getElementById('mineSay');
+  const weekPrev=document.getElementById('weekPrev');
+  const weekNext=document.getElementById('weekNext');
+  // offset: 0=上一周(默认) 1=上上周 2=三周前；-1=本周(无数据)
+  let weekOffset=0;
+  const weekNotes={0:'',1:'',2:''}; // 各周留言
+
+  // 编造的三周数据（随当前时间动态定位）
+  // 上一周：开心的一周——和朋友去野餐、看了喜欢的展
+  // 上上周：伤心的一周——预防课考试考砸了（对应与小回声的对话）
+  // 三周前：没有和小回声说话
+  const WEEK_DATA={
+    0:{mood:'happy', vals:[0.78,0.85,0.72,0.9,0.8,0.68,0.88],
+       say:'这一周你过得闪闪发光！和好朋友的野餐、期待已久的展览，还有那么多小确幸。看得出你把自己照顾得很好。继续保持这份对生活的热情吧，把快乐都装进口袋里，慢慢积攒成勇气。下周也要这样亮晶晶地生活哦！'},
+    1:{mood:'sad', vals:[0.55,0.42,0.3,0.22,0.35,0.28,0.4],
+       say:'我知道这一周你不太好受。预防课的考试让你难过了好几天，看到卷子那一刻的天塌感，我都记着呢。但一次考试真的不能定义你，你愿意把难过说给我听，已经很勇敢了。允许自己缓一缓，然后我们再把落下的内容一点点补回来，好不好？'},
+    2:{mood:'silent', vals:null,
+       say:'这一周我们没说上话，但我一直都在的呀。愿你已经把忙碌和疲惫都安顿好，愿风把烦恼吹远，愿你在某个平常的傍晚抬头看见很好看的晚霞。无论什么时候想说话，随时回来找我，我一直在这里。'}
+  };
+  const MIN_OFFSET=-1, MAX_OFFSET=3; // 越界提示范围（未直接使用，仅注释）
+
+  function weekDates(offset){
+    // 返回该周周一和周日的 Date
+    const now=new Date();
+    const day=now.getDay()===0?7:now.getDay(); // 周一=1..周日=7
+    const monday=new Date(now); monday.setHours(0,0,0,0);
+    monday.setDate(monday.getDate()-(day-1)-offset*7);
+    const sunday=new Date(monday); sunday.setDate(sunday.getDate()+6);
+    return [monday,sunday];
+  }
+  function fmtMD(d){ return (d.getMonth()+1)+'月'+d.getDate()+'日'; }
+
+  function renderWeek(){
+    if(!WEEK_DATA[weekOffset]){
+      showToast('暂无数据');
+      // 回到相邻方向最近的有数据周（往过去越界→2，往未来越界→0）
+      weekOffset = weekOffset>2 ? 2 : 0;
+    }
+    const data=WEEK_DATA[weekOffset];
+    const [m,s]=weekDates(weekOffset);
+    weekRange.textContent=fmtMD(m)+' - '+fmtMD(s);
+    weekPrev.classList.toggle('disabled', !WEEK_DATA[weekOffset+1]);
+    weekNext.classList.toggle('disabled', !WEEK_DATA[weekOffset-1]);
+    echoSay.textContent=data.say;
+    mineSay.value=weekNotes[weekOffset]||'';
+
+    // 曲线
+    weekEmpty.style.display=data.mood==='silent'?'block':'none';
+    weekChart.style.display=data.mood==='silent'?'none':'block';
+    weekChart.innerHTML='';
+    if(data.mood!=='silent'){
+      const W=264,H=110,TOP=14,BOT=92,N=7;
+      const xs=Array.from({length:N},(_,i)=>14+i*(W-28)/(N-1));
+      let d='';
+      const pts=data.vals.map((v,i)=>[xs[i],(BOT-v*(BOT-TOP)).toFixed(1)]);
+      pts.forEach((p,i)=>{ d+=(i?' L':'M')+p[0].toFixed(1)+','+p[1]; });
+      const dayNames=['一','二','三','四','五','六','日'];
+      let html=`<defs><linearGradient id="wkFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#4CBB6C" stop-opacity="0.28"/><stop offset="100%" stop-color="#4CBB6C" stop-opacity="0"/></linearGradient></defs>`;
+      html+=`<path d="${d} L${W-14},${BOT} L14,${BOT} Z" fill="url(#wkFill)"/>`;
+      html+=`<line x1="14" y1="${BOT}" x2="${W-14}" y2="${BOT}" stroke="rgba(138,106,40,0.3)" stroke-width="1"/>`;
+      html+=`<path d="${d}" fill="none" stroke="#4CBB6C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+      pts.forEach((p,i)=>{
+        html+=`<circle cx="${p[0].toFixed(1)}" cy="${p[1]}" r="3.5" fill="#4CBB6C" stroke="#FFFDF3" stroke-width="1.5"/>`;
+        html+=`<text x="${p[0].toFixed(1)}" y="${BOT+14}" text-anchor="middle" font-size="9" fill="#B49B57">周${dayNames[i]}</text>`;
+      });
+      weekChart.innerHTML=html;
+    }
+  }
+  weekPrev.addEventListener('click', ()=>{ weekOffset++; renderWeek(); });
+  weekNext.addEventListener('click', ()=>{ weekOffset--; renderWeek(); });
+  mineSay.addEventListener('keydown', e=>{
+    if(e.key==='Enter'&&!e.shiftKey){
+      e.preventDefault();
+      weekNotes[weekOffset]=mineSay.value.trim();
+      showToast(weekNotes[weekOffset]?'已保存给这一周的话 ♡':'已清空这一周的话');
+    }
+  });
+  document.getElementById('weeklyBack').addEventListener('click', ()=>switchPage('me'));
+
+  // ===== 个人资料编辑页 =====
+  const meUsername=document.querySelector('.profile-top-bar .username');
+  const profileName=document.getElementById('profileName');
+  const profileAvatar=document.getElementById('profileAvatar');
+  const profileAvatarSvg=document.getElementById('profileAvatarSvg');
+  const avatarPopup=document.getElementById('avatarPopup');
+  const avatarPopupBox=document.getElementById('avatarPopupBox');
+  const meAvatarSvg=document.querySelector('.avatar-wrap svg');
+
+  // 同步当前用户名到编辑页
+  function syncProfileName(){ profileName.value = meUsername.textContent; }
+
+  // 头像随机生成（6 组配色轮换，无表情）
+  const AVATAR_PALETTES=[
+    ['#FBCFE8','#F472B6','#FDE68A','#FBBF24'],
+    ['#BFDBFE','#60A5FA','#FEF3C7','#FBBF24'],
+    ['#BBF7D0','#4ADE80','#FEF3C7','#FBBF24'],
+    ['#E9D5FF','#A855F7','#FDE68A','#FBBF24'],
+    ['#FED7AA','#FB923C','#FEF3C7','#FBBF24'],
+    ['#A5F3FC','#22D3EE','#FEF3C7','#FBBF24']
+  ];
+  function randomizeAvatar(){
+    const p=AVATAR_PALETTES[Math.floor(Math.random()*AVATAR_PALETTES.length)];
+    const svg=`<defs><linearGradient id="profAvBg2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${p[0]}"/><stop offset="100%" stop-color="${p[1]}"/></linearGradient></defs>
+      <circle cx="33" cy="33" r="33" fill="url(#profAvBg2)"/>
+      <circle cx="33" cy="26" r="11" fill="${p[2]}"/>
+      <path d="M12 60c0-11 9.4-19 21-19s21 8 21 19" fill="${p[3]}"/>`;
+    profileAvatarSvg.innerHTML=svg;
+    // 同步到我的页头像
+    if(meAvatarSvg) meAvatarSvg.innerHTML=svg.replace('id="profAvBg2"','id="meAvBgR"').replace('url(#profAvBg2)','url(#meAvBgR)');
+  }
+
+  // 头像弹窗：点击头像切换显示/隐藏
+  profileAvatar.addEventListener('click', ()=>{
+    avatarPopup.classList.toggle('show');
+  });
+  // 点击遮罩关闭
+  avatarPopup.addEventListener('click', e=>{
+    if(e.target===avatarPopup) avatarPopup.classList.remove('show');
+  });
+  // 选项处理
+  avatarPopupBox.querySelectorAll('.avatar-popup-item').forEach(item=>{
+    item.addEventListener('click', e=>{
+      e.stopPropagation();
+      const op=item.dataset.avatarOp;
+      if(op==='random'){
+        randomizeAvatar();
+        showToast('头像已随机生成 ♡');
+      }else{
+        showToast('从相册中选择（测试中）');
+      }
+      avatarPopup.classList.remove('show');
+    });
+  });
+
+  // 保存用户名
+  document.getElementById('profileSave').addEventListener('click', ()=>{
+    const v=profileName.value.trim();
+    if(!v){ showToast('用户名不能为空'); return; }
+    meUsername.textContent=v;
+    showToast('保存成功');
+  });
+
+  // 返回
+  document.getElementById('profileBack').addEventListener('click', ()=>switchPage('me'));
+
+  // 每次进入编辑页同步用户名
+  const origSwitchPage=switchPage;
+  switchPage=function(target){
+    origSwitchPage(target);
+    if(target==='profile') syncProfileName();
+  };
+})();
+</script>
+</body>
+</html>
